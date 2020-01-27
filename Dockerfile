@@ -1,6 +1,7 @@
-FROM alpine:3.10 as build
+FROM alpine:3.11 as build
 
-RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories && \
+RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/main >> /etc/apk/repositories && \
+    echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories && \
     apk update && \
     apk add --no-cache \
             alpine-sdk \
@@ -22,40 +23,14 @@ RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositor
             gcc \
             su-exec \
             libtool \
-            musl-obstack \
-            musl-obstack-dev \
             ninja \
             python \
             python3 \
             xz-dev \
             zlib-dev
 
-# abuild won't run as root, so we need to set up a user account.
-RUN adduser abuild -G abuild; \
-    su-exec abuild abuild-keygen -ai
+ENV VERSION=37
 
-ENV VERSION=37 SRC_DIR=/home/abuild PKG_DIR=/home/abuild/packages
-
-COPY elfutils/* $SRC_DIR/elfutils/
-COPY argp-standalone/* $SRC_DIR/argp-standalone/
-
-# We need a version of argp-standalone compiled with -fPIC for buildign the
-# full elfutils project.
-WORKDIR $SRC_DIR/argp-standalone
-RUN chown -R abuild: $SRC_DIR; \
-    su-exec abuild abuild && \
-    apk add $PKG_DIR/*/*/argp*.apk --allow-untrusted && \
-    abuild-sign -k /home/abuild/.abuild/*.rsa $PKG_DIR/*/*/APKINDEX.tar.gz; \
-    mv $PKG_DIR /home/abuild/argp
-
-# The packaged version of elfutils does not include libdw which kcov links
-# against, so we have to build a custom version.
-WORKDIR $SRC_DIR/elfutils
-RUN su-exec abuild abuild && \
-    apk add $PKG_DIR/*/*/elf*.apk --allow-untrusted
-
-
-WORKDIR $SRC_DIR
 RUN curl -L https://github.com/SimonKagstrom/kcov/archive/v$VERSION.tar.gz \
     | tar xzC $SRC_DIR/ && \
     mkdir kcov-$VERSION/build && \
@@ -66,10 +41,6 @@ RUN curl -L https://github.com/SimonKagstrom/kcov/archive/v$VERSION.tar.gz \
 
 
 # Build a small image containing just the obligatory parts.
-FROM alpine:3.10
-RUN apk add --no-cache \
-        binutils \
-        curl
-
-COPY --from=build /home/abuild/argp/*/* /home/abuild/packages/*/* /home/
+FROM alpine:3.11
 COPY --from=build /usr/local/bin/kcov /usr/bin/kcov
+RUN apk add --no-cache -X http://dl-cdn.alpinelinux.org/alpine/edge/main elfutils-dev
