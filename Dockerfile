@@ -1,5 +1,6 @@
-FROM alpine:3.10 as build
+FROM alpine:3.12 as build
 
+RUN apk add --repository=http://nl.alpinelinux.org/alpine/edge/main/ binutils binutils-dev
 RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositories && \
     apk update && \
     apk add --no-cache \
@@ -7,7 +8,6 @@ RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositor
             argp-standalone \
             autoconf \
             automake \
-            binutils-dev \
             bison \
             bsd-compat-headers \
             build-base \
@@ -25,7 +25,6 @@ RUN echo http://dl-cdn.alpinelinux.org/alpine/edge/testing >> /etc/apk/repositor
             musl-obstack \
             musl-obstack-dev \
             ninja \
-            python \
             python3 \
             xz-dev \
             zlib-dev
@@ -66,10 +65,8 @@ RUN curl -L https://github.com/SimonKagstrom/kcov/archive/v$VERSION.tar.gz \
 
 
 # Build a small image containing just the obligatory parts.
-FROM alpine:3.10
-RUN apk add --no-cache \
-        binutils \
-        curl
+FROM alpine:3.12
+RUN apk add --no-cache --repository=http://nl.alpinelinux.org/alpine/edge/main/ binutils curl
 
 COPY --from=build /home/abuild/argp/*/* /home/abuild/packages/*/* /home/
 COPY --from=build /usr/local/bin/kcov /usr/bin/kcov
